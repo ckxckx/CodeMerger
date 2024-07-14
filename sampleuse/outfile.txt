@@ -1,0 +1,1640 @@
+## CODEMERGER START ##
+## FILE: generate_notion_page.py ##
+
+from masscode_db import DB, Snippet
+
+
+
+import json
+
+from notion_code_languages import mapping_masscode_to_notion
+
+
+
+
+
+from notion_pages import *
+
+
+
+from typing import Optional, Callable
+
+
+
+
+
+import pickle
+
+from typer import Typer
+
+    
+
+app = Typer()
+
+
+
+
+
+
+
+
+
+
+
+
+
+def iterate_process(db: DB, func: Callable):
+
+    for snippet in db.snippets:
+
+        func(snippet)
+
+
+
+def dosth1(snippet: Snippet):
+
+    print(snippet.updatedAt)
+
+
+
+    print(snippet.name)
+
+    for c in snippet.content:
+
+        print(c.label)
+
+        # print(c.value)
+
+    # psnippet.content)
+
+
+
+@app.command()
+
+def get_page_id(keyword:str):
+
+    '''
+
+    python ./generate_notion_page.py  get-page-id "masscode-ckxprivate-windows-20240713"
+
+    '''
+
+    search_results = search_notion_pages(keyword)
+
+    assert len(search_results["results"]) >=1
+
+    # from IPython import embed; embed()
+
+    page_id = search_results['results'][0]['id']
+
+    print(f"page_id: {page_id}")
+
+    return page_id
+
+    
+
+@app.command()
+
+def filter_company_masscode_db(parent_page_key_word: str, select_notes_after_timestamp:int):
+
+    '''
+
+    python ./generate_notion_page.py filter-company-masscode-db "masscode-ckxcompany-windows-20240209-20240713" 1707440400000
+
+    '''
+
+
+
+
+
+    with open(r"D:\codebase\masscodetonotion\dbcompany.json", "r") as f:
+
+        db_dict = json.load(f)
+
+
+
+    db = DB.model_validate(db_dict)
+
+
+
+    npmc_list: List[NotionPageForMasscode] = []
+
+
+
+    for snippet in db.snippets:
+
+        if snippet.createdAt < select_notes_after_timestamp:
+
+            continue
+
+        
+
+        note_name = snippet.name
+
+        if note_name == None:
+
+            note_name = "code snippet 未命名"
+
+        
+
+        is_snippet_content_unique = False
+
+        if len(snippet.content) ==1:
+
+            is_snippet_content_unique = True
+
+
+
+        for c in snippet.content:
+
+
+
+            if is_snippet_content_unique:
+
+                note_label = ""
+
+            else:
+
+                note_label = c.label
+
+            note_language = mapping_masscode_to_notion[c.language.value]
+
+            npmc = NotionPageForMasscode(
+
+                note_name=note_name,
+
+                note_label = note_label,
+
+                note_content = c.value,
+
+                note_language = note_language,
+
+            )
+
+            npmc_list.append(npmc)
+
+
+
+    print(len(npmc_list))
+
+
+
+    parent_page_id = get_page_id(parent_page_key_word)
+
+    
+
+    suc_count = 0
+
+
+
+    fail_count = 0
+
+
+
+    
+
+    with open("session3.pkl", "wb") as f:
+
+        pickle.dump(npmc_list, f)
+
+    for npmc in npmc_list:
+
+        npmc.isdone = False
+
+        try:
+
+            npmc.create_notion_page_at(parent_page_id)
+
+            npmc.isdone = True
+
+            suc_count+=1
+
+            print(f"# of suc: {suc_count}")
+
+        except:
+
+            npmc.isdone = False
+
+            fail_count+=1
+
+            print(f"# of fail: {fail_count}")
+
+
+
+    
+
+    print(f"遍历完成\n# of suc: {suc_count}\n # of fail: {fail_count}")
+
+    npmc_fail_list = []
+
+    for npmc in npmc_list:
+
+        if npmc.isdone == False:
+
+            npmc_fail_list.append(npmc)
+
+
+
+    with open("session4.pkl", "wb") as f:
+
+        pickle.dump(npmc_fail_list, f)
+
+
+
+
+
+@app.command()
+
+def sync_masscode_to_notion(parent_page_key_word: str, select_notes_after_timestamp:int):
+
+    '''
+
+    python ./generate_notion_page.py sync-masscode-to-notion "masscode-ckxprivate-windows-20240713" 0
+
+    '''
+
+
+
+    with open("db.json", "r") as f:
+
+        db_dict = json.load(f)
+
+
+
+    db = DB.model_validate(db_dict)
+
+
+
+    npmc_list: List[NotionPageForMasscode] = []
+
+
+
+    for snippet in db.snippets:
+
+        if snippet.createdAt < select_notes_after_timestamp:
+
+            continue
+
+        
+
+        note_name = snippet.name
+
+        if note_name == None:
+
+            note_name = "code snippet 未命名"
+
+        
+
+        is_snippet_content_unique = False
+
+        if len(snippet.content) ==1:
+
+            is_snippet_content_unique = True
+
+
+
+        for c in snippet.content:
+
+
+
+            if is_snippet_content_unique:
+
+                note_label = ""
+
+            else:
+
+                note_label = c.label
+
+            note_language = mapping_masscode_to_notion[c.language.value]
+
+            npmc = NotionPageForMasscode(
+
+                note_name=note_name,
+
+                note_label = note_label,
+
+                note_content = c.value,
+
+                note_language = note_language,
+
+            )
+
+            npmc_list.append(npmc)
+
+
+
+
+
+    parent_page_id = get_page_id(parent_page_key_word)
+
+
+
+    kk = npmc_list[:10]
+
+
+
+    
+
+
+
+    # import pickle
+
+
+
+    # pickle.dumps(kk)
+
+
+
+    # from IPython import embed; embed()
+
+
+
+    suc_count = 0
+
+
+
+    fail_count = 0
+
+
+
+    
+
+    with open("session1.pkl", "wb") as f:
+
+        pickle.dump(npmc_list, f)
+
+    for npmc in npmc_list:
+
+        npmc.isdone = False
+
+        try:
+
+            npmc.create_notion_page_at(parent_page_id)
+
+            npmc.isdone = True
+
+            suc_count+=1
+
+            print(f"# of suc: {suc_count}")
+
+        except:
+
+            npmc.isdone = False
+
+            fail_count+=1
+
+            print(f"# of fail: {fail_count}")
+
+
+
+    
+
+    print(f"遍历完成\n# of suc: {suc_count}\n # of fail: {fail_count}")
+
+    npmc_fail_list = []
+
+    for npmc in npmc_list:
+
+        if npmc.isdone == False:
+
+            npmc_fail_list.append(npmc)
+
+
+
+    with open("session2.pkl", "wb") as f:
+
+        pickle.dump(npmc_fail_list, f)
+
+
+
+
+
+
+
+
+
+from typing import cast
+
+@app.command()
+
+def test_fail():
+
+    '''
+
+    test:
+
+86720592-f3d4-4ea5-96dd-ee96e0d4fd02
+
+
+
+    formal:
+
+a831f412-9b4e-4611-9c26-87baadb959f1
+
+    '''
+
+    with open("session4.pkl", "rb") as f:
+
+        npmc_fail_list = pickle.load(f)
+
+        nfl = cast(List[NotionPageForMasscode], npmc_fail_list)
+
+        elist = []
+
+        for item in nfl:
+
+            print(item.note_name)
+
+            print(f"字数：{len(item.note_content)}")
+
+            print("*"*99+"\n"+"*"*99)
+
+            print(item.note_content)
+
+
+
+            input()
+
+            # try:
+
+            #     item.create_notion_page_at("86720592-f3d4-4ea5-96dd-ee96e0d4fd02")
+
+            # except Exception as e:
+
+            #     print("sth wrong:")
+
+            #     elist.append(e)
+
+            #     print(e)
+
+            # pass
+
+    from IPython import embed; embed()
+
+    
+
+# try:
+
+#     nfl[0].create_notion_page_at("86720592-f3d4-4ea5-96dd-ee96e0d4fd02")
+
+# except Exception as e:
+
+#     print(e)
+
+
+
+@app.command()
+
+def liststh():
+
+    print("list sth")
+
+
+
+if __name__ == "__main__":
+
+    
+
+    app()
+## CODEMERGER END ##
+
+## CODEMERGER START ##
+## FILE: masscode_db.py ##
+
+from pydantic import BaseModel
+
+from typing import List, Optional, Union
+
+from enum import Enum
+
+
+
+# 定义 Language 枚举
+
+class Language(Enum):
+
+    ABAP = 'abap'
+
+    ABC = 'abc'
+
+    ACTIONSCRIPT = 'actionscript'
+
+    ADA = 'ada'
+
+    ALDA = 'alda'
+
+    APACHE_CONF = 'apache_conf'
+
+    APEX = 'apex'
+
+    APPLESCRIPT = 'applescript'
+
+    AQL = 'aql'
+
+    ASCIIDOC = 'asciidoc'
+
+    ASL = 'asl'
+
+    ASP_VB_NET = 'asp_vb_net'
+
+    ASSEMBLY_X86 = 'assembly_x86'
+
+    AUTOHOTKEY = 'autohotkey'
+
+    BATCHFILE = 'batchfile'
+
+    BICEP = 'bicep'
+
+    C_CPP = 'c_cpp'
+
+    C9SEARCH = 'c9search'
+
+    CIRRU = 'cirru'
+
+    CLOJURE = 'clojure'
+
+    COBOL = 'cobol'
+
+    COFFEE = 'coffee'
+
+    COLDFUSION = 'coldfusion'
+
+    CRYSTAL = 'crystal'
+
+    CSHARP = 'csharp'
+
+    CSOUND_DOCUMENT = 'csound_document'
+
+    CSOUND_ORCHESTRA = 'csound_orchestra'
+
+    CSOUND_SCORE = 'csound_score'
+
+    CSP = 'csp'
+
+    CSS = 'css'
+
+    CURLY = 'curly'
+
+    D = 'd'
+
+    DART = 'dart'
+
+    DIFF = 'diff'
+
+    DJANGO = 'django'
+
+    DOCKERFILE = 'dockerfile'
+
+    DOT = 'dot'
+
+    DROOLS = 'drools'
+
+    EDIFACT = 'edifact'
+
+    EIFFEL = 'eiffel'
+
+    EJS = 'ejs'
+
+    ELIXIR = 'elixir'
+
+    ELM = 'elm'
+
+    ERLANG = 'erlang'
+
+    FORTH = 'forth'
+
+    FORTRAN = 'fortran'
+
+    FSHARP = 'fsharp'
+
+    FSL = 'fsl'
+
+    FTL = 'ftl'
+
+    GCODE = 'gcode'
+
+    GHERKIN = 'gherkin'
+
+    GITIGNORE = 'gitignore'
+
+    GLSL = 'glsl'
+
+    GOBSTONES = 'gobstones'
+
+    GOLANG = 'golang'
+
+    GRAPHQLSCHEMA = 'graphqlschema'
+
+    GROOVY = 'groovy'
+
+    HAML = 'haml'
+
+    HANDLEBARS = 'handlebars'
+
+    HASKELL_CABAL = 'haskell_cabal'
+
+    HASKELL = 'haskell'
+
+    HAXE = 'haxe'
+
+    HJSON = 'hjson'
+
+    HTML_ELIXIR = 'html_elixir'
+
+    HTML_RUBY = 'html_ruby'
+
+    HTML = 'html'
+
+    INI = 'ini'
+
+    IO = 'io'
+
+    JACK = 'jack'
+
+    JADE = 'jade'
+
+    JAVA = 'java'
+
+    JAVASCRIPT = 'javascript'
+
+    JSON = 'json'
+
+    JSON5 = 'json5'
+
+    JSONIQ = 'jsoniq'
+
+    JSP = 'jsp'
+
+    JSSM = 'jssm'
+
+    JSX = 'jsx'
+
+    JULIA = 'julia'
+
+    KOTLIN = 'kotlin'
+
+    KUSTO = 'kusto'
+
+    LATEX = 'latex'
+
+    LATTE = 'latte'
+
+    LESS = 'less'
+
+    LIQUID = 'liquid'
+
+    LISP = 'lisp'
+
+    LIVESCRIPT = 'livescript'
+
+    LOGIQL = 'logiql'
+
+    LOGTALK = 'logtalk'
+
+    LSL = 'lsl'
+
+    LUA = 'lua'
+
+    LUAPAGE = 'luapage'
+
+    LUCENE = 'lucene'
+
+    MAKEFILE = 'makefile'
+
+    MARKDOWN = 'markdown'
+
+    MASK = 'mask'
+
+    MATLAB = 'matlab'
+
+    MAZE = 'maze'
+
+    MEDIAWIKI = 'mediawiki'
+
+    MEL = 'mel'
+
+    MIKROTIK = 'mikrotik'
+
+    MIPS = 'mips'
+
+    MIXAL = 'mixal'
+
+    MUSHCODE = 'mushcode'
+
+    MYSQL = 'mysql'
+
+    NGINX = 'nginx'
+
+    NIM = 'nim'
+
+    NIX = 'nix'
+
+    NSIS = 'nsis'
+
+    NUNJUCKS = 'nunjucks'
+
+    OBJECTIVEC = 'objectivec'
+
+    OCAML = 'ocaml'
+
+    PASCAL = 'pascal'
+
+    PERL = 'perl'
+
+    PERL6 = 'perl6'
+
+    PGSQL = 'pgsql'
+
+    PHP_LARAVEL_BLADE = 'php_laravel_blade'
+
+    PHP = 'php'
+
+    PIG = 'pig'
+
+    PLAIN_TEXT = 'plain_text'
+
+    POWERSHELL = 'powershell'
+
+    PRAAT = 'praat'
+
+    PRISMA = 'prisma'
+
+    PROLOG = 'prolog'
+
+    PROPERTIES = 'properties'
+
+    PROTOBUF = 'protobuf'
+
+    PUG = 'pug'
+
+    PUPPET = 'puppet'
+
+    PYTHON = 'python'
+
+    QML = 'qml'
+
+    R = 'r'
+
+    RAKU = 'raku'
+
+    RAZOR = 'razor'
+
+    RDOC = 'rdoc'
+
+    RED = 'red'
+
+    REDSHIFT = 'redshift'
+
+    REGEXP = 'regexp'
+
+    RHTML = 'rhtml'
+
+    RST = 'rst'
+
+    RUBY = 'ruby'
+
+    RUST = 'rust'
+
+    SAS = 'sas'
+
+    SASS = 'sass'
+
+    SASSDOC = 'sassdoc'
+
+    SCAD = 'scad'
+
+    SCALA = 'scala'
+
+    SCHEME = 'scheme'
+
+    SCRYPT = 'scrypt'
+
+    SCSS = 'scss'
+
+    SH = 'sh'
+
+    SJS = 'sjs'
+
+    SLIM = 'slim'
+
+    SMALLTALK = 'smalltalk'
+
+    SMARTY = 'smarty'
+
+    SMITHY = 'smithy'
+
+    SOLIDITY = 'solidity'
+
+    SOY_TEMPLATE = 'soy_template'
+
+    SPACE = 'space'
+
+    SPARQL = 'sparql'
+
+    SQL = 'sql'
+
+    SQLSERVER = 'sqlserver'
+
+    STYLUS = 'stylus'
+
+    SVG = 'svg'
+
+    SWIFT = 'swift'
+
+    TCL = 'tcl'
+
+    TERRAFORM = 'terraform'
+
+    TEX = 'tex'
+
+    TEXT = 'text'
+
+    TEXTILE = 'textile'
+
+    TOML = 'toml'
+
+    TSX = 'tsx'
+
+    TURTLE = 'turtle'
+
+    TWIG = 'twig'
+
+    TYPESCRIPT = 'typescript'
+
+    VALA = 'vala'
+
+    VBSCRIPT = 'vbscript'
+
+    VELOCITY = 'velocity'
+
+    VERILOG = 'verilog'
+
+    VHDL = 'vhdl'
+
+    VISUALFORCE = 'visualforce'
+
+    VUE = 'vue'
+
+    WOLLOK = 'wollok'
+
+    XML = 'xml'
+
+    XQUERY = 'xquery'
+
+    XSL = 'xsl'
+
+    YAML = 'yaml'
+
+    ZEEK = 'zeek'
+
+
+
+# Folder 模型
+
+class Folder(BaseModel):
+
+    id: str
+
+    name: str
+
+    defaultLanguage: Language
+
+    parentId: Optional[Union[str, None]] = None
+
+    icon: Optional[Union[str, None]] = None
+
+    isOpen: bool
+
+    isSystem: bool
+
+    createdAt: int
+
+    updatedAt: int
+
+
+
+# FolderTree 模型
+
+class FolderTree(Folder):
+
+    children: List[Folder]
+
+
+
+# SnippetsSort 类型
+
+SnippetsSort = Enum('SnippetsSort', ['updatedAt', 'createdAt', 'name'])
+
+
+
+# SnippetContent 模型
+
+class SnippetContent(BaseModel):
+
+    label: str
+
+    language: Language
+
+    value: str
+
+
+
+# Snippet 模型
+
+class Snippet(BaseModel):
+
+    id: str
+
+    name: Optional[str] =None
+
+    content: List[SnippetContent]
+
+    description: Optional[str] = None
+
+    folderId: str
+
+    tagsIds: List[str]
+
+    isFavorites: bool
+
+    isDeleted: bool
+
+    createdAt: int
+
+    updatedAt: int
+
+
+
+# Tag 模型
+
+class Tag(BaseModel):
+
+    id: str
+
+    name: str
+
+    createdAt: int
+
+    updatedAt: int
+
+
+
+# DB 模型
+
+class DB(BaseModel):
+
+    folders: List[Folder]
+
+    snippets: List[Snippet]
+
+    tags: List[Tag]
+
+## CODEMERGER END ##
+
+## CODEMERGER START ##
+## FILE: notionsample.py ##
+
+from notion_client import Client
+
+
+
+# 设置Notion API的基本信息
+
+NOTION_API_KEY = "**************************"
+
+
+
+# 初始化Notion客户端
+
+notion = Client(auth=NOTION_API_KEY)
+
+
+
+# 1. 获取父页面ID
+
+def search_notion_pages(query):
+
+    response = notion.search(query=query)
+
+    return response
+
+
+
+search_results = search_notion_pages("notion apitest1")
+
+parent_page_id = search_results['results'][0]['id']
+
+
+
+# 2. 准备新页面的内容
+
+new_page_title = "新页面标题"
+
+new_page_content = "这是新页面的内容。"
+
+
+
+# 3. 调用API创建新页面
+
+def create_notion_page(parent_page_id, title, content):
+
+    response = notion.pages.create(
+
+        parent={"page_id": parent_page_id},
+
+        properties={'title': [{'text': {'content': '环境变量:^:'}}]},
+
+        children=[{'type': 'code', 'code': {'caption': [], 'rich_text': [{'type': 'text', 'text': {'content': 'powershell 环境变量\n\n\n\n$env:https_proxy="http://127.0.0.1:1080"\n$env:http_proxy="http://127.0.0.1:1080"\n\nset HTTP_PROXY=http://127.0.0.1:1080\nset HTTPS_PROXY=%HTTP_PROXY%\n\n\nwsl --export Ubuntu-22.04 D:\\wsldir\\wsl-u-22.tar\n\n\n\nhttps://blog.csdn.net/CSDN_Huang1/article/details/124092336'}}], 'language': 'plain text'}}]
+
+    )
+
+    return response
+
+
+
+create_page_response = create_notion_page(parent_page_id, new_page_title, new_page_content)
+
+
+
+if 'id' in create_page_response:
+
+    print('新页面创建成功，链接为:', f"https://www.notion.so/{create_page_response['id'].replace('-', '')}")
+
+else:
+
+    print('新页面创建失败:', create_page_response)
+
+
+
+## CODEMERGER END ##
+
+## CODEMERGER START ##
+## FILE: notion_code_languages.py ##
+
+
+
+
+
+mapping_masscode_to_notion = {
+
+    'sparql': 'plain text',
+
+    'apache_conf': 'plain text',
+
+    'sas': 'plain text',
+
+    'alda': 'plain text',
+
+    'golang': 'plain text',
+
+    'mel': 'plain text',
+
+    'coffee': 'plain text',
+
+    'sassdoc': 'plain text',
+
+    'velocity': 'plain text',
+
+    'coldfusion': 'plain text',
+
+    'nim': 'plain text',
+
+    'twig': 'plain text',
+
+    'ejs': 'plain text',
+
+    'mikrotik': 'plain text',
+
+    'tex': 'plain text',
+
+    'handlebars': 'plain text',
+
+    'puppet': 'plain text',
+
+    'rst': 'plain text',
+
+    'dot': 'plain text',
+
+    'json5': 'plain text',
+
+    'php_laravel_blade': 'plain text',
+
+    'assembly_x86': 'plain text',
+
+    'ada': 'plain text',
+
+    'xsl': 'plain text',
+
+    'dockerfile': 'plain text',
+
+    'django': 'plain text',
+
+    'html_ruby': 'plain text',
+
+    'pig': 'plain text',
+
+    'textile': 'plain text',
+
+    'vala': 'plain text',
+
+    'jsoniq': 'plain text',
+
+    'actionscript': 'plain text',
+
+    'abc': 'plain text',
+
+    'qml': 'plain text',
+
+    'graphqlschema': 'plain text',
+
+    'logtalk': 'plain text',
+
+    'objectivec': 'plain text',
+
+    'turtle': 'plain text',
+
+    'jade': 'plain text',
+
+    'applescript': 'plain text',
+
+    'haxe': 'plain text',
+
+    'zeek': 'plain text',
+
+    'mask': 'plain text',
+
+    'tsx': 'plain text',
+
+    'space': 'plain text',
+
+    'scrypt': 'plain text',
+
+    'luapage': 'plain text',
+
+    'autohotkey': 'plain text',
+
+    'svg': 'plain text',
+
+    'raku': 'plain text',
+
+    'jssm': 'plain text',
+
+    'jsx': 'plain text',
+
+    'soy_template': 'plain text',
+
+    'prisma': 'plain text',
+
+    'vue': 'plain text',
+
+    'html_elixir': 'plain text',
+
+    'mushcode': 'plain text',
+
+    'red': 'plain text',
+
+    'text': 'plain text',
+
+    'ini': 'plain text',
+
+    'forth': 'plain text',
+
+    'cirru': 'plain text',
+
+    'ftl': 'plain text',
+
+    'mysql': 'plain text',
+
+    'haml': 'plain text',
+
+    'terraform': 'plain text',
+
+    'fsharp': 'plain text',
+
+    'praat': 'plain text',
+
+    'wollok': 'plain text',
+
+    'redshift': 'plain text',
+
+    'curly': 'plain text',
+
+    'c_cpp': 'plain text',
+
+    'rhtml': 'plain text',
+
+    'latte': 'plain text',
+
+    'pgsql': 'plain text',
+
+    'd': 'plain text',
+
+    'csound_orchestra': 'plain text',
+
+    'pug': 'plain text',
+
+    'stylus': 'plain text',
+
+    'rdoc': 'plain text',
+
+    'mips': 'plain text',
+
+    'smalltalk': 'plain text',
+
+    'aql': 'plain text',
+
+    'csharp': 'plain text',
+
+    'asl': 'plain text',
+
+    'maze': 'plain text',
+
+    'apex': 'plain text',
+
+    'csound_document': 'plain text',
+
+    'smarty': 'plain text',
+
+    'jack': 'plain text',
+
+    'kusto': 'plain text',
+
+    'sqlserver': 'plain text',
+
+    'gobstones': 'plain text',
+
+    'liquid': 'plain text',
+
+    'tcl': 'plain text',
+
+    'asciidoc': 'plain text',
+
+    'batchfile': 'plain text',
+
+    'sjs': 'plain text',
+
+    'logiql': 'plain text',
+
+    'xquery': 'plain text',
+
+    'asp_vb_net': 'plain text',
+
+    'gcode': 'plain text',
+
+    'mixal': 'plain text',
+
+    'lsl': 'plain text',
+
+    'jsp': 'plain text',
+
+    'hjson': 'plain text',
+
+    'properties': 'plain text',
+
+    'gitignore': 'plain text',
+
+    'smithy': 'plain text',
+
+    'vbscript': 'plain text',
+
+    'perl6': 'plain text',
+
+    'slim': 'plain text',
+
+    'lucene': 'plain text',
+
+    'c9search': 'plain text',
+
+    'nsis': 'plain text',
+
+    'fsl': 'plain text',
+
+    'haskell_cabal': 'plain text',
+
+    'plain_text': 'plain text',
+
+    'crystal': 'plain text',
+
+    'eiffel': 'plain text',
+
+    'nginx': 'plain text',
+
+    'cobol': 'plain text',
+
+    'nunjucks': 'plain text',
+
+    'drools': 'plain text',
+
+    'csound_score': 'plain text',
+
+    'io': 'plain text',
+
+    'scad': 'plain text',
+
+    'edifact': 'plain text',
+
+    'visualforce': 'plain text',
+
+    'bicep': 'plain text',
+
+    'sh': 'plain text',
+
+    'regexp': 'plain text',
+
+    'razor': 'plain text',
+
+    'mediawiki': 'plain text',
+
+    'csp': 'plain text',
+
+    'markdown': 'markdown',
+
+    'less': 'less',
+
+    'livescript': 'livescript',
+
+    'toml': 'toml',
+
+    'sass': 'sass',
+
+    'gherkin': 'gherkin',
+
+    'matlab': 'matlab',
+
+    'javascript': 'javascript',
+
+    'json': 'json',
+
+    'dart': 'dart',
+
+    'verilog': 'verilog',
+
+    'nix': 'nix',
+
+    'rust': 'rust',
+
+    'typescript': 'typescript',
+
+    'java': 'java',
+
+    'kotlin': 'kotlin',
+
+    'lisp': 'lisp',
+
+    'makefile': 'makefile',
+
+    'scala': 'scala',
+
+    'ruby': 'ruby',
+
+    'groovy': 'groovy',
+
+    'julia': 'julia',
+
+    'xml': 'xml',
+
+    'protobuf': 'protobuf',
+
+    'swift': 'swift',
+
+    'solidity': 'solidity',
+
+    'scheme': 'scheme',
+
+    'diff': 'diff',
+
+    'sql': 'sql',
+
+    'python': 'python',
+
+    'powershell': 'powershell',
+
+    'elixir': 'elixir',
+
+    'latex': 'latex',
+
+    'ocaml': 'ocaml',
+
+    'fortran': 'fortran',
+
+    'abap': 'abap',
+
+    'html': 'html',
+
+    'perl': 'perl',
+
+    'php': 'php',
+
+    'vhdl': 'vhdl',
+
+    'scss': 'scss',
+
+    'css': 'css',
+
+    'yaml': 'yaml',
+
+    'lua': 'lua',
+
+    'erlang': 'erlang',
+
+    'glsl': 'glsl',
+
+    'prolog': 'prolog',
+
+    'r': 'r',
+
+    'haskell': 'haskell',
+
+    'elm': 'elm',
+
+    'clojure': 'clojure',
+
+    'pascal': 'pascal',
+
+}
+
+## CODEMERGER END ##
+
+## CODEMERGER START ##
+## FILE: notion_pages.py ##
+
+from pydantic import BaseModel
+
+from typing import Optional,List
+
+from notion_client import Client
+
+from abc import abstractmethod
+
+
+
+# 设置Notion API的基本信息
+
+NOTION_API_KEY = "**************************"
+
+
+
+# 初始化Notion客户端
+
+notion = Client(auth=NOTION_API_KEY)
+
+
+
+
+
+def search_notion_pages(query):
+
+    response = notion.search(query=query)
+
+    return response
+
+
+
+class NotionClientTool:
+
+    @abstractmethod
+
+    def gen_properties(self):
+
+        pass
+
+
+
+    @abstractmethod
+
+    def gen_children(self):
+
+        pass
+
+
+
+    def create_notion_page_at(self, parent_page_id):
+
+
+
+
+
+        properties = self.gen_properties()
+
+        children = self.gen_children()
+
+
+
+
+
+        # print(properties)
+
+        # print(children)
+
+        
+
+        response = notion.pages.create(
+
+            parent = {
+
+                "page_id": parent_page_id
+
+            },
+
+            properties = properties,
+
+            children = children
+
+        )
+
+
+
+        if 'id' in response:
+
+            print('新页面创建成功，链接为:', f"https://www.notion.so/{response['id'].replace('-', '')}")
+
+        else:
+
+            print('新页面创建失败:', response)
+
+
+
+
+
+
+
+class NotionPageForMasscode(BaseModel, NotionClientTool):
+
+    note_name :str
+
+    note_label: Optional[str] =None
+
+    note_content: str
+
+    note_language: str
+
+    isdone: bool = False
+
+    def gen_properties(self)->dict:
+
+        adict = {
+
+            "title": [
+
+                {
+
+                    "text": {
+
+                        "content": "From [masscode]: " + self.note_name+" |:^:| " + self.note_label
+
+                    }
+
+                }
+
+            ]
+
+        }
+
+        return adict
+
+        pass
+
+    def gen_children(self)->List[dict]:
+
+
+
+        alist = []
+
+
+
+        codeblock = {
+
+            "type": "code",
+
+            "code": {
+
+                "caption": [],
+
+                    "rich_text": [{
+
+                "type": "text",
+
+                "text": {
+
+                    "content": self.note_content
+
+                }
+
+                }],
+
+                "language": self.note_language
+
+            }
+
+        }
+
+        alist.append(codeblock)
+
+        return alist
+
+        pass
+
+
+
+## CODEMERGER END ##
+
