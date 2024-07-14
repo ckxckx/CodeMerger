@@ -24,7 +24,7 @@ def merge_files_with_metadata(directory, inputfile_related_path_list,output_file
                     file_path = os.path.join(root, file)
                     with open(file_path, 'r') as infile:
                         lines = infile.readlines()
-                        out = metadata().dumps(file,"\n".join(lines))
+                        out = metadata().dumps(file,"".join(lines))
                         outfile.write(out)
                         # outfile.write(f"## CODEMERGER START ##""## CODEMERGER START ##")
                         # outfile.write(f"## FILE: {file} ##\n")

@@ -93,169 +93,27 @@ def get_page_id(keyword:str):
 
     
 
-@app.command()
 
-def filter_company_masscode_db(parent_page_key_word: str, select_notes_after_timestamp:int):
 
-    '''
 
-    python ./generate_notion_page.py filter-company-masscode-db "masscode-ckxcompany-windows-20240209-20240713" 1707440400000
 
-    '''
-
-
-
-
-
-    with open(r"D:\codebase\masscodetonotion\dbcompany.json", "r") as f:
-
-        db_dict = json.load(f)
-
-
-
-    db = DB.model_validate(db_dict)
-
-
-
-    npmc_list: List[NotionPageForMasscode] = []
-
-
-
-    for snippet in db.snippets:
-
-        if snippet.createdAt < select_notes_after_timestamp:
-
-            continue
-
-        
-
-        note_name = snippet.name
-
-        if note_name == None:
-
-            note_name = "code snippet 未命名"
-
-        
-
-        is_snippet_content_unique = False
-
-        if len(snippet.content) ==1:
-
-            is_snippet_content_unique = True
-
-
-
-        for c in snippet.content:
-
-
-
-            if is_snippet_content_unique:
-
-                note_label = ""
-
-            else:
-
-                note_label = c.label
-
-            note_language = mapping_masscode_to_notion[c.language.value]
-
-            npmc = NotionPageForMasscode(
-
-                note_name=note_name,
-
-                note_label = note_label,
-
-                note_content = c.value,
-
-                note_language = note_language,
-
-            )
-
-            npmc_list.append(npmc)
-
-
-
-    print(len(npmc_list))
-
-
-
-    parent_page_id = get_page_id(parent_page_key_word)
-
-    
-
-    suc_count = 0
-
-
-
-    fail_count = 0
-
-
-
-    
-
-    with open("session3.pkl", "wb") as f:
-
-        pickle.dump(npmc_list, f)
-
-    for npmc in npmc_list:
-
-        npmc.isdone = False
-
-        try:
-
-            npmc.create_notion_page_at(parent_page_id)
-
-            npmc.isdone = True
-
-            suc_count+=1
-
-            print(f"# of suc: {suc_count}")
-
-        except:
-
-            npmc.isdone = False
-
-            fail_count+=1
-
-            print(f"# of fail: {fail_count}")
-
-
-
-    
-
-    print(f"遍历完成\n# of suc: {suc_count}\n # of fail: {fail_count}")
-
-    npmc_fail_list = []
-
-    for npmc in npmc_list:
-
-        if npmc.isdone == False:
-
-            npmc_fail_list.append(npmc)
-
-
-
-    with open("session4.pkl", "wb") as f:
-
-        pickle.dump(npmc_fail_list, f)
-
-
-
-
+from pathlib import Path
 
 @app.command()
 
-def sync_masscode_to_notion(parent_page_key_word: str, select_notes_after_timestamp:int):
+def sync_masscode_to_notion(parent_page_key_word: str, select_notes_after_timestamp:int, masscodedb:Path):
 
     '''
 
-    python ./generate_notion_page.py sync-masscode-to-notion "masscode-ckxprivate-windows-20240713" 0
+    python ./generate_notion_page.py sync-masscode-to-notion "masscode-ckxprivate-windows-20240713" 0 ./db.json
+
+    python ./generate_notion_page.py sync-masscode-to-notion "masscode-ckxcompany-windows-20240209-20240713" 1707440400000 "D:\\codebase\\masscodetonotion\\dbcompany.json"
 
     '''
 
 
 
-    with open("db.json", "r") as f:
+    with open(masscodedb, "r") as f:
 
         db_dict = json.load(f)
 
@@ -333,19 +191,7 @@ def sync_masscode_to_notion(parent_page_key_word: str, select_notes_after_timest
 
 
 
-    
 
-
-
-    # import pickle
-
-
-
-    # pickle.dumps(kk)
-
-
-
-    # from IPython import embed; embed()
 
 
 
@@ -377,13 +223,13 @@ def sync_masscode_to_notion(parent_page_key_word: str, select_notes_after_timest
 
             print(f"# of suc: {suc_count}")
 
-        except:
+        except Exception as e:
 
             npmc.isdone = False
 
             fail_count+=1
 
-            print(f"# of fail: {fail_count}")
+            print(f"# of fail: {fail_count} since: {e}")
 
 
 
@@ -483,11 +329,35 @@ a831f412-9b4e-4611-9c26-87baadb959f1
 
 
 
+from datetime import datetime
+
 @app.command()
 
-def liststh():
+def get_timestamp(thedatetime: str) -> int:
 
-    print("list sth")
+    '''
+
+    python generate_notion_page.py get-timestamp 20240714
+
+    '''
+
+    # 假设输入的字符串是YYYYMMDD格式的
+
+    date_format = "%Y%m%d"
+
+    # 将字符串转换为datetime对象
+
+    dt = datetime.strptime(thedatetime, date_format)
+
+    # 将datetime对象转换为timestamp，然后乘以1000转换为毫秒
+
+    timestamp = int(dt.timestamp() * 1000)
+
+    print(f"{timestamp}")
+
+    return timestamp
+
+
 
 
 
@@ -1000,7 +870,7 @@ from notion_client import Client
 
 # 设置Notion API的基本信息
 
-NOTION_API_KEY = "**************************"
+from secrete import NOTION_API_KEY
 
 
 
@@ -1069,393 +939,6 @@ else:
 ## CODEMERGER END ##
 
 ## CODEMERGER START ##
-## FILE: notion_code_languages.py ##
-
-
-
-
-
-mapping_masscode_to_notion = {
-
-    'sparql': 'plain text',
-
-    'apache_conf': 'plain text',
-
-    'sas': 'plain text',
-
-    'alda': 'plain text',
-
-    'golang': 'plain text',
-
-    'mel': 'plain text',
-
-    'coffee': 'plain text',
-
-    'sassdoc': 'plain text',
-
-    'velocity': 'plain text',
-
-    'coldfusion': 'plain text',
-
-    'nim': 'plain text',
-
-    'twig': 'plain text',
-
-    'ejs': 'plain text',
-
-    'mikrotik': 'plain text',
-
-    'tex': 'plain text',
-
-    'handlebars': 'plain text',
-
-    'puppet': 'plain text',
-
-    'rst': 'plain text',
-
-    'dot': 'plain text',
-
-    'json5': 'plain text',
-
-    'php_laravel_blade': 'plain text',
-
-    'assembly_x86': 'plain text',
-
-    'ada': 'plain text',
-
-    'xsl': 'plain text',
-
-    'dockerfile': 'plain text',
-
-    'django': 'plain text',
-
-    'html_ruby': 'plain text',
-
-    'pig': 'plain text',
-
-    'textile': 'plain text',
-
-    'vala': 'plain text',
-
-    'jsoniq': 'plain text',
-
-    'actionscript': 'plain text',
-
-    'abc': 'plain text',
-
-    'qml': 'plain text',
-
-    'graphqlschema': 'plain text',
-
-    'logtalk': 'plain text',
-
-    'objectivec': 'plain text',
-
-    'turtle': 'plain text',
-
-    'jade': 'plain text',
-
-    'applescript': 'plain text',
-
-    'haxe': 'plain text',
-
-    'zeek': 'plain text',
-
-    'mask': 'plain text',
-
-    'tsx': 'plain text',
-
-    'space': 'plain text',
-
-    'scrypt': 'plain text',
-
-    'luapage': 'plain text',
-
-    'autohotkey': 'plain text',
-
-    'svg': 'plain text',
-
-    'raku': 'plain text',
-
-    'jssm': 'plain text',
-
-    'jsx': 'plain text',
-
-    'soy_template': 'plain text',
-
-    'prisma': 'plain text',
-
-    'vue': 'plain text',
-
-    'html_elixir': 'plain text',
-
-    'mushcode': 'plain text',
-
-    'red': 'plain text',
-
-    'text': 'plain text',
-
-    'ini': 'plain text',
-
-    'forth': 'plain text',
-
-    'cirru': 'plain text',
-
-    'ftl': 'plain text',
-
-    'mysql': 'plain text',
-
-    'haml': 'plain text',
-
-    'terraform': 'plain text',
-
-    'fsharp': 'plain text',
-
-    'praat': 'plain text',
-
-    'wollok': 'plain text',
-
-    'redshift': 'plain text',
-
-    'curly': 'plain text',
-
-    'c_cpp': 'plain text',
-
-    'rhtml': 'plain text',
-
-    'latte': 'plain text',
-
-    'pgsql': 'plain text',
-
-    'd': 'plain text',
-
-    'csound_orchestra': 'plain text',
-
-    'pug': 'plain text',
-
-    'stylus': 'plain text',
-
-    'rdoc': 'plain text',
-
-    'mips': 'plain text',
-
-    'smalltalk': 'plain text',
-
-    'aql': 'plain text',
-
-    'csharp': 'plain text',
-
-    'asl': 'plain text',
-
-    'maze': 'plain text',
-
-    'apex': 'plain text',
-
-    'csound_document': 'plain text',
-
-    'smarty': 'plain text',
-
-    'jack': 'plain text',
-
-    'kusto': 'plain text',
-
-    'sqlserver': 'plain text',
-
-    'gobstones': 'plain text',
-
-    'liquid': 'plain text',
-
-    'tcl': 'plain text',
-
-    'asciidoc': 'plain text',
-
-    'batchfile': 'plain text',
-
-    'sjs': 'plain text',
-
-    'logiql': 'plain text',
-
-    'xquery': 'plain text',
-
-    'asp_vb_net': 'plain text',
-
-    'gcode': 'plain text',
-
-    'mixal': 'plain text',
-
-    'lsl': 'plain text',
-
-    'jsp': 'plain text',
-
-    'hjson': 'plain text',
-
-    'properties': 'plain text',
-
-    'gitignore': 'plain text',
-
-    'smithy': 'plain text',
-
-    'vbscript': 'plain text',
-
-    'perl6': 'plain text',
-
-    'slim': 'plain text',
-
-    'lucene': 'plain text',
-
-    'c9search': 'plain text',
-
-    'nsis': 'plain text',
-
-    'fsl': 'plain text',
-
-    'haskell_cabal': 'plain text',
-
-    'plain_text': 'plain text',
-
-    'crystal': 'plain text',
-
-    'eiffel': 'plain text',
-
-    'nginx': 'plain text',
-
-    'cobol': 'plain text',
-
-    'nunjucks': 'plain text',
-
-    'drools': 'plain text',
-
-    'csound_score': 'plain text',
-
-    'io': 'plain text',
-
-    'scad': 'plain text',
-
-    'edifact': 'plain text',
-
-    'visualforce': 'plain text',
-
-    'bicep': 'plain text',
-
-    'sh': 'plain text',
-
-    'regexp': 'plain text',
-
-    'razor': 'plain text',
-
-    'mediawiki': 'plain text',
-
-    'csp': 'plain text',
-
-    'markdown': 'markdown',
-
-    'less': 'less',
-
-    'livescript': 'livescript',
-
-    'toml': 'toml',
-
-    'sass': 'sass',
-
-    'gherkin': 'gherkin',
-
-    'matlab': 'matlab',
-
-    'javascript': 'javascript',
-
-    'json': 'json',
-
-    'dart': 'dart',
-
-    'verilog': 'verilog',
-
-    'nix': 'nix',
-
-    'rust': 'rust',
-
-    'typescript': 'typescript',
-
-    'java': 'java',
-
-    'kotlin': 'kotlin',
-
-    'lisp': 'lisp',
-
-    'makefile': 'makefile',
-
-    'scala': 'scala',
-
-    'ruby': 'ruby',
-
-    'groovy': 'groovy',
-
-    'julia': 'julia',
-
-    'xml': 'xml',
-
-    'protobuf': 'protobuf',
-
-    'swift': 'swift',
-
-    'solidity': 'solidity',
-
-    'scheme': 'scheme',
-
-    'diff': 'diff',
-
-    'sql': 'sql',
-
-    'python': 'python',
-
-    'powershell': 'powershell',
-
-    'elixir': 'elixir',
-
-    'latex': 'latex',
-
-    'ocaml': 'ocaml',
-
-    'fortran': 'fortran',
-
-    'abap': 'abap',
-
-    'html': 'html',
-
-    'perl': 'perl',
-
-    'php': 'php',
-
-    'vhdl': 'vhdl',
-
-    'scss': 'scss',
-
-    'css': 'css',
-
-    'yaml': 'yaml',
-
-    'lua': 'lua',
-
-    'erlang': 'erlang',
-
-    'glsl': 'glsl',
-
-    'prolog': 'prolog',
-
-    'r': 'r',
-
-    'haskell': 'haskell',
-
-    'elm': 'elm',
-
-    'clojure': 'clojure',
-
-    'pascal': 'pascal',
-
-}
-
-## CODEMERGER END ##
-
-## CODEMERGER START ##
 ## FILE: notion_pages.py ##
 
 from pydantic import BaseModel
@@ -1470,7 +953,7 @@ from abc import abstractmethod
 
 # 设置Notion API的基本信息
 
-NOTION_API_KEY = "**************************"
+from secrete import NOTION_API_KEY
 
 
 
